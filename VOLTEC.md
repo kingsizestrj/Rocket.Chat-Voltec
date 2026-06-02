@@ -43,24 +43,29 @@ exatamente o comportamento desejado.
 instalabilidade do Chrome) e agora há manifest + meta completos. No iOS, "Adicionar à
 Tela de Início" funciona com manifest + meta tags.
 
-### ⏳ Fase 2 — FOSS-ização robusta (planejada)
+### 🧰 Fase 2 — FOSS-ização robusta (toolkit entregue, execução no seu ambiente)
 
 O script oficial `scripts/fossify.ts` apaga `ee/` inteiro e troca o entrypoint, **mas
 quebra o build**: `@rocket.chat/license` (em `ee/packages/license`) é importado como
-valor por **21 arquivos do core**, e `apps/meteor/server/main.ts` + 2 hooks do client
-importam de `../ee`.
+valor por **21 arquivos do core**; e `media-calls`, `presence`, `federation-matrix`,
+`omnichannel-services` são importados estaticamente por serviços do core.
 
-Plano robusto:
-1. **Manter** `ee/packages/license` (o portão community).
-2. Remover pacotes de *features* Enterprise de `ee/packages/` (ex.: `media-calls`,
-   `abac`, `federation-matrix`, `omni-core-ee`) — **verificando antes** se cada um é
-   importado pelo core (alguns como `presence`/`pdf-worker` podem ser dependências).
-3. Remover `ee/apps/` (microserviços de escala — opcionais).
-4. Remover `apps/meteor/ee` e religar as poucas referências do core
-   (`main.ts` → startup FOSS no-op; 2 hooks do client).
-5. Trocar `startRocketChat.ts` pela versão FOSS.
+**Por que não commitamos a remoção pronta:** deletar pacotes exige `yarn install`
+(senão o CI com `--immutable` falha) e quebra imports do core que precisam de
+ajuste + verificação de build — algo que **não roda neste container efêmero**.
+Commitar a árvore quebrada seria pior que inútil.
 
-> Requer verificação de build (Meteor) em ambiente apropriado.
+**Entregue:**
+- `scripts/voltec-fossify.ts` (`yarn voltec-fossify`) — remove `ee/apps` e os pacotes
+  de feature de `ee/packages/*` **mantendo `license`**, e troca o entrypoint p/ FOSS.
+- `docs/voltec-foss.md` — mapa completo dos acoplamentos core→enterprise e as edições
+  exatas para o build voltar a passar.
+
+> Rode `yarn voltec-fossify` no seu ambiente de build, aplique os ajustes do guia,
+> e valide com `yarn install && yarn typecheck && yarn dev`.
+>
+> **Alternativa de risco zero:** rodar como *Community dormante* (sem chave de
+> licença → enterprise já desligado), sem remover nada.
 
 ### 🚧 Fase 3 — Chamadas WebRTC próprias (núcleo entregue)
 
