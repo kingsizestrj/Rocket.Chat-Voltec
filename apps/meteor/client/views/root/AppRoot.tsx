@@ -24,6 +24,11 @@ const AppRoot = (): ReactElement => (
 				<meta name='rating' content='general' />
 				<meta name='mobile-web-app-capable' content='yes' />
 				<meta name='apple-mobile-web-app-capable' content='yes' />
+				<meta name='apple-mobile-web-app-status-bar-style' content='default' />
+				<meta name='apple-mobile-web-app-title' content='Voltec' />
+				<meta name='application-name' content='Voltec' />
+				<meta name='theme-color' content='#1d74f5' />
+				<meta name='msapplication-TileColor' content='#1d74f5' />
 				<meta name='msapplication-TileImage' content='assets/tile_144.png' />
 				<meta name='msapplication-config' content='images/browserconfig.xml' />
 				<meta property='og:image' content='assets/favicon_512.png' />

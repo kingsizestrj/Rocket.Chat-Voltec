@@ -134,3 +134,58 @@ self.addEventListener('message', async (event) => {
 	// 	});
 	// });
 });
+
+/*
+ * Voltec PWA — offline app-shell support.
+ *
+ * ADDITIVE and isolated from the E2E file-decryption logic above. It only
+ * intercepts top-level page navigations (request.mode === 'navigate') using a
+ * network-first strategy with a cached app-shell fallback, so the installed PWA
+ * still opens when the device is offline. It never touches API/DDP/asset or
+ * '/file-decrypt/' requests. Remove this whole block to disable offline support.
+ */
+const VOLTEC_SHELL_CACHE = 'voltec-pwa-shell-v1';
+const VOLTEC_SHELL_URL = '/home?homescreen';
+
+self.addEventListener('activate', (event) => {
+	// Drop older shell caches when the version bumps.
+	event.waitUntil(
+		caches
+			.keys()
+			.then((keys) =>
+				Promise.all(keys.filter((key) => key.startsWith('voltec-pwa-shell-') && key !== VOLTEC_SHELL_CACHE).map((key) => caches.delete(key))),
+			)
+			.catch(() => undefined),
+	);
+});
+
+self.addEventListener('fetch', (event) => {
+	const { request } = event;
+
+	// Only handle top-level page navigations; everything else (API, DDP, assets,
+	// file-decrypt) is left untouched for the network / other handlers.
+	if (request.method !== 'GET' || request.mode !== 'navigate') {
+		return;
+	}
+
+	event.respondWith(
+		fetch(request)
+			.then((response) => {
+				// Cache only clean, same-origin, non-redirected shell responses.
+				if (response && response.status === 200 && response.type === 'basic' && !response.redirected) {
+					const copy = response.clone();
+					caches
+						.open(VOLTEC_SHELL_CACHE)
+						.then((cache) => cache.put(VOLTEC_SHELL_URL, copy))
+						.catch(() => undefined);
+				}
+				return response;
+			})
+			.catch(() =>
+				caches
+					.open(VOLTEC_SHELL_CACHE)
+					.then((cache) => cache.match(VOLTEC_SHELL_URL))
+					.then((cached) => cached || Response.error()),
+			),
+	);
+});
