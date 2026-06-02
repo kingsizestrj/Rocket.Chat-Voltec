@@ -1,0 +1,111 @@
+# Voltec — ambiente de produção (monolito FOSS) em Docker.
+#
+#   cp docker/.env.example docker/.env   # edite DOMAIN, e-mail TLS, segredos
+#   docker compose -f docker/docker-compose.yml --env-file docker/.env up -d --build
+#
+# Serviços: rocketchat (sua imagem Voltec) + mongo (replica set, exigido pelo RC)
+#           + traefik (proxy reverso + TLS Let's Encrypt) + coturn (TURN p/ WebRTC).
+
+x-mongo-url: &mongo-url 'mongodb://mongo:27017/rocketchat?replicaSet=rs0'
+
+services:
+  rocketchat:
+    image: ${VOLTEC_IMAGE:-voltec/rocketchat:local}
+    # Build da sua imagem a partir do código-fonte (Meteor). Veja docs/voltec-docker.md.
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.voltec
+    restart: unless-stopped
+    environment:
+      MONGO_URL: *mongo-url
+      MONGO_OPLOG_URL: 'mongodb://mongo:27017/local?replicaSet=rs0'
+      ROOT_URL: 'https://${DOMAIN:?defina DOMAIN no .env}'
+      PORT: '3000'
+      DEPLOY_METHOD: docker
+      # Admin inicial (opcional — preenche o setup wizard):
+      ADMIN_USERNAME: ${ADMIN_USERNAME:-}
+      ADMIN_PASS: ${ADMIN_PASS:-}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-}
+      OVERWRITE_SETTING_Iframe_Restrict_Access: 'false'
+    volumes:
+      - rocketchat_uploads:/app/uploads
+    depends_on:
+      mongo:
+        condition: service_healthy
+    labels:
+      traefik.enable: 'true'
+      traefik.http.routers.rocketchat.rule: 'Host(`${DOMAIN}`)'
+      traefik.http.routers.rocketchat.entrypoints: websecure
+      traefik.http.routers.rocketchat.tls.certresolver: le
+      traefik.http.services.rocketchat.loadbalancer.server.port: '3000'
+    expose:
+      - '3000'
+
+  mongo:
+    image: mongodb/mongodb-community-server:${MONGODB_VERSION:-7.0}-ubi8
+    restart: unless-stopped
+    environment:
+      MONGODB_REPLICA_SET_NAME: rs0
+    volumes:
+      - mongo_data:/data/db
+      - mongo_config:/data/configdb
+    healthcheck:
+      # Saudável só após o replica set responder a um ping.
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 10s
+      timeout: 10s
+      retries: 12
+      start_period: 40s
+    entrypoint:
+      - bash
+      - -c
+      - |
+        mongod --replSet rs0 --bind_ip_all &
+        sleep 2
+        until mongosh --quiet --eval "db.adminCommand('ping')"; do
+          echo '=====> aguardando o Mongo...'; sleep 1
+        done
+        mongosh --quiet --eval "try { rs.status() } catch (e) { rs.initiate({_id: 'rs0', members: [{ _id: 0, host: 'mongo:27017' }]}) }"
+        echo '=====> replica set rs0 pronto'
+        wait
+
+  traefik:
+    image: traefik:v3.6.6
+    restart: unless-stopped
+    command:
+      - --providers.docker=true
+      - --providers.docker.exposedbydefault=false
+      - --entrypoints.web.address=:80
+      - --entrypoints.websecure.address=:443
+      # redireciona HTTP -> HTTPS
+      - --entrypoints.web.http.redirections.entrypoint.to=websecure
+      - --entrypoints.web.http.redirections.entrypoint.scheme=https
+      - --certificatesresolvers.le.acme.email=${TLS_EMAIL:?defina TLS_EMAIL no .env}
+      - --certificatesresolvers.le.acme.storage=/letsencrypt/acme.json
+      - --certificatesresolvers.le.acme.tlschallenge=true
+    ports:
+      - '80:80'
+      - '443:443'
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - traefik_letsencrypt:/letsencrypt
+
+  # TURN/STUN para as chamadas WebRTC atravessarem NAT/firewall corporativo.
+  coturn:
+    image: coturn/coturn:4.6
+    restart: unless-stopped
+    network_mode: host # coturn precisa de muitas portas de relay; host é o mais simples
+    volumes:
+      - ./coturn/turnserver.conf:/etc/coturn/turnserver.conf:ro
+    command:
+      - -c
+      - /etc/coturn/turnserver.conf
+      - --external-ip=${TURN_PUBLIC_IP:?defina TURN_PUBLIC_IP no .env}
+      - --realm=${TURN_REALM:-${DOMAIN}}
+      - --user=${TURN_USER:-voltec}:${TURN_SECRET:?defina TURN_SECRET no .env}
+
+volumes:
+  rocketchat_uploads:
+  mongo_data:
+  mongo_config:
+  traefik_letsencrypt:

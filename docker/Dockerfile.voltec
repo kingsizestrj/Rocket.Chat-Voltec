@@ -1,0 +1,110 @@
+# Voltec — build multi-stage do Rocket.Chat (Meteor) a partir do código-fonte.
+#
+# Espelha a sequência oficial de CI (.github/actions/meteor-build). É um build
+# PESADO: precisa de ~8GB de RAM e 30-45min. Rode/valide no seu host de build.
+# Context do build = raiz do monorepo (veja docker/docker-compose.yml).
+#
+#   DOCKER_BUILDKIT=1 docker build -f docker/Dockerfile.voltec -t voltec/rocketchat:local .
+
+ARG NODE_VERSION=22.22.3
+ARG DENO_VERSION=2.3.1
+ARG METEOR_VERSION=3.4.1
+
+# ---------- deno (usado em build e runtime) ----------
+FROM denoland/deno:bin-${DENO_VERSION} AS deno
+
+# ============================================================
+# Stage 1 — builder: gera o bundle Meteor em /tmp/dist/bundle
+# ============================================================
+FROM node:${NODE_VERSION}-bullseye AS builder
+
+ARG METEOR_VERSION
+ENV METEOR_ALLOW_SUPERUSER=true \
+    NODE_OPTIONS=--max-old-space-size=8192 \
+    CYPRESS_INSTALL_BINARY=0 \
+    PUPPETEER_SKIP_DOWNLOAD=1
+
+# Ferramentas de build nativas exigidas por algumas dependências.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    g++ make python3 git curl ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY --from=deno /deno /usr/local/bin/deno
+
+# Yarn 4 (berry) via corepack — usa a versão de "packageManager" do repo.
+RUN corepack enable
+
+WORKDIR /src
+
+# Copia o monorepo (use um .dockerignore para excluir node_modules/.git/.meteor/local).
+COPY . .
+
+# 1) Instala dependências de todo o workspace.
+RUN corepack prepare yarn@4.12.0 --activate && yarn install --inline-builds
+
+# 2) Builda os pacotes do workspace (turbo), exceto o app meteor em si.
+RUN yarn build
+
+# 3) Instala o Meteor na versão do projeto.
+RUN curl -fsSL https://install.meteor.com/?release=${METEOR_VERSION} | sed 's/--progress-bar/-sL/g' | sh
+ENV PATH="/root/.meteor:${PATH}"
+
+# 4) Truque de merge (igual ao CI): devDependencies viram dependencies para o
+#    bundle, e restaura o package.json original antes do meteor build.
+RUN cd apps/meteor \
+    && cp package.json package.json.bak \
+    && jq '.dependencies = (.dependencies + .devDependencies) | del(.devDependencies)' package.json > package.json.tmp \
+    && mv package.json.tmp package.json \
+    && yarn install --inline-builds \
+    && mv package.json.bak package.json
+
+# 5) Build de produção do Meteor (server-only) -> /tmp/dist/bundle
+RUN yarn workspace @rocket.chat/meteor run build:ci
+
+# ============================================================
+# Stage 2 — runtime: empacota o bundle (espelha Dockerfile.debian)
+# ============================================================
+FROM node:${NODE_VERSION}-bullseye-slim
+
+LABEL org.opencontainers.image.title="Voltec" \
+      org.opencontainers.image.description="Comunicação interna da Voltec (fork Rocket.Chat FOSS)"
+
+RUN groupadd -g 65533 -r rocketchat \
+    && useradd -u 65533 -r -g rocketchat rocketchat \
+    && mkdir -p /app/uploads \
+    && chown rocketchat:rocketchat /app/uploads \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends fontconfig \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY --from=deno /deno /bin/deno
+COPY --from=builder --chown=rocketchat:rocketchat /tmp/dist/bundle /app/bundle
+
+ENV DEPLOY_METHOD=docker \
+    NODE_ENV=production \
+    MONGO_URL=mongodb://mongo:27017/rocketchat \
+    HOME=/tmp \
+    PORT=3000 \
+    ROOT_URL=http://localhost:3000 \
+    Accounts_AvatarStorePath=/app/uploads
+
+# Build das deps nativas do bundle (g++/make/python só durante o npm install).
+RUN aptMark="$(apt-mark showmanual)" \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends g++ make python3 ca-certificates \
+    && su rocketchat -s /bin/bash -c '\
+        cd /app/bundle/programs/server \
+        && npm install --omit=dev \
+        && cd npm/node_modules/isolated-vm \
+        && npm install --omit=dev \
+        && npm cache clear --force' \
+    && find /app/bundle/programs/server/npm/node_modules -type f -name '*.map' -delete \
+    && find /app/bundle/programs/web.browser -type f -name '*.map' -delete \
+    && apt-get purge -y --auto-remove g++ make python3 \
+    && rm -rf /var/lib/apt/lists/*
+
+USER rocketchat
+VOLUME /app/uploads
+WORKDIR /app/bundle
+EXPOSE 3000
+CMD ["node", "main.js"]

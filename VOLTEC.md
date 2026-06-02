@@ -114,3 +114,15 @@ yarn dev           # sobe o apps/meteor em modo dev (requer MongoDB)
 
 > O build completo do Meteor exige MongoDB, bastante RAM e tempo; não roda em
 > containers efêmeros mínimos.
+
+## Deploy de produção (Docker)
+
+Ambiente completo em `docker/` (Rocket.Chat + MongoDB replica set + Traefik/TLS +
+coturn para WebRTC):
+
+```bash
+cp docker/.env.example docker/.env   # edite DOMAIN, TLS_EMAIL, ADMIN_*, TURN_*
+docker compose -f docker/docker-compose.yml --env-file docker/.env up -d --build
+```
+
+Guia completo (build da imagem, TLS, TURN/WebRTC, backups): **`docs/voltec-docker.md`**.

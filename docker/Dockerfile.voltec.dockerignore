@@ -1,0 +1,14 @@
+# Reduz o contexto do build (raiz do monorepo). NÃO exclua código-fonte nem
+# .yarn/releases (binário do Yarn) — só caches e artefatos.
+**/node_modules
+.git
+**/.meteor/local
+**/.turbo
+.turbo
+**/.yarn/cache
+**/.yarn/install-state.gz
+**/dist
+**/*.log
+**/coverage
+**/.nyc_output
+docker/.env
