@@ -1,0 +1,63 @@
+/* eslint-disable */
+/**
+ * Voltec calls — client bootstrap (REFERENCE TEMPLATE, rename to `.ts` to activate).
+ *
+ * Creates and starts a single CallManager once the user is logged in, wiring it
+ * to the DDP signaling transport and to the ICE configuration coming from public
+ * settings. Exposes the manager so the UI (incoming-call modal, in-call bar) can
+ * drive it. Suggested home after activation: `client/startup/voltecCalls.ts`,
+ * then `import './startup/voltecCalls'` from `client/main.ts`.
+ */
+import { CallManager } from '../CallManager';
+import type { CallEngineConfig, IceServerConfig } from '../definitions';
+import { createDdpSignaling } from './ddpSignaling';
+
+// Replace these with the real RC client helpers at activation time:
+import { onLoggedIn } from '../../../lib/loggedIn';
+import { getUserId } from '../../../lib/user';
+import { settings } from '../../../../app/settings/client';
+
+export let callManager: CallManager | undefined;
+
+function readIceConfig(): CallEngineConfig {
+	// `Voltec_Call_ICE_Servers` is a public JSON setting (see server settings).
+	const raw = settings.get<string>('Voltec_Call_ICE_Servers');
+	let iceServers: IceServerConfig[] = [{ urls: 'stun:stun.l.google.com:19302' }];
+	try {
+		if (raw) {
+			const parsed = JSON.parse(raw);
+			if (Array.isArray(parsed) && parsed.length) {
+				iceServers = parsed;
+			}
+		}
+	} catch {
+		// keep the default STUN server on malformed config
+	}
+	return { iceServers, media: { audio: true, video: true } };
+}
+
+onLoggedIn(() => {
+	const uid = getUserId();
+	if (!uid || callManager) {
+		return;
+	}
+
+	const manager = new CallManager({
+		localUserId: uid,
+		transport: createDdpSignaling(uid),
+		getConfig: readIceConfig,
+	});
+
+	manager.on('incoming', ({ from, video }) => {
+		// TODO: render the incoming-call modal and call manager.accept()/reject().
+		console.log('[voltec-calls] incoming call from', from, 'video:', video);
+	});
+
+	manager.start();
+	callManager = manager;
+
+	return () => {
+		manager.stop();
+		callManager = undefined;
+	};
+});

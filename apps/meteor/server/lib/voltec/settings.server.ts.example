@@ -1,0 +1,39 @@
+/* eslint-disable */
+/**
+ * Voltec calls — server settings (REFERENCE TEMPLATE, rename to `.ts`).
+ *
+ * Registers the public configuration for the WebRTC stack: enable flag and the
+ * ICE servers (STUN/TURN) as a JSON array. Host your own coturn for production
+ * NAT traversal; the default public Google STUN only helps with discovery, not
+ * relaying through symmetric NATs.
+ *
+ * Activation: rename to `settings.ts` and `import './lib/voltec/settings'` from
+ * `server/settings/index.ts` (or call `createVoltecCallSettings()` there).
+ */
+import { settingsRegistry } from '../../../app/settings/server';
+
+export async function createVoltecCallSettings(): Promise<void> {
+	await settingsRegistry.addGroup('Voltec_Calls', async function () {
+		await this.add('Voltec_Call_Enabled', true, {
+			type: 'boolean',
+			public: true,
+			i18nLabel: 'Voltec_Call_Enabled',
+		});
+
+		await this.add(
+			'Voltec_Call_ICE_Servers',
+			JSON.stringify([
+				{ urls: 'stun:stun.l.google.com:19302' },
+				// Example TURN entry (replace with your coturn credentials):
+				// { urls: 'turn:turn.suaempresa.com:3478', username: 'voltec', credential: 'senha' },
+			]),
+			{
+				type: 'string',
+				multiline: true,
+				public: true,
+				i18nLabel: 'Voltec_Call_ICE_Servers',
+				i18nDescription: 'Voltec_Call_ICE_Servers_Description',
+			},
+		);
+	});
+}

@@ -1,0 +1,72 @@
+/* eslint-disable */
+/**
+ * Voltec calls — server signaling relay (REFERENCE TEMPLATE, rename to `.ts`).
+ *
+ * Exposes the `voltec:call:signal` Meteor method that validates an inbound
+ * signaling envelope and relays it to the target user. The server stamps the
+ * authenticated `from` so peers cannot spoof the caller.
+ *
+ * Activation checklist (see VOLTEC.md, Fase 3):
+ *   1) Rename to `voltecCallSignaling.ts` and `import './lib/voltec/voltecCallSignaling'`
+ *      from `server/main.ts` (after `registerServices()`), or from `server/methods`.
+ *   2) Add the `notify.voltecCall` broadcast event to
+ *      `packages/core-services/src/events/Events.ts`.
+ *   3) Add a listener mapping that broadcast to `notifications.notifyUser(uid, 'voltec-call', data)`
+ *      (alongside the other `notify.*` listeners).
+ *   4) Add the `notify-user` → `voltec-call` entry to
+ *      `packages/ddp-client/src/types/streams.ts`.
+ *   5) Define the shared envelope type in `@rocket.chat/core-typings`.
+ */
+import { api } from '@rocket.chat/core-services';
+import { Users } from '@rocket.chat/models';
+import type { ServerMethods } from '@rocket.chat/ddp-client';
+import { check, Match } from 'meteor/check';
+import { DDPRateLimiter } from 'meteor/ddp-rate-limiter';
+import { Meteor } from 'meteor/meteor';
+
+// Mirror of the RC-agnostic client envelope (see core-typings IVoltecCall).
+type CallSignalEnvelope = { to: string; from?: string; signal: { kind: string; callId: string } & Record<string, unknown> };
+
+declare module '@rocket.chat/ddp-client' {
+	// eslint-disable-next-line @typescript-eslint/naming-convention
+	interface ServerMethods {
+		'voltec:call:signal'(envelope: CallSignalEnvelope): void;
+	}
+}
+
+Meteor.methods<ServerMethods>({
+	async 'voltec:call:signal'(envelope) {
+		check(envelope, Match.ObjectIncluding({ to: String, signal: Match.ObjectIncluding({ kind: String, callId: String }) }));
+
+		const fromId = Meteor.userId();
+		if (!fromId) {
+			throw new Meteor.Error('error-invalid-user', 'You must be logged in', { method: 'voltec:call:signal' });
+		}
+
+		if (envelope.to === fromId) {
+			throw new Meteor.Error('error-invalid-target', 'Cannot call yourself', { method: 'voltec:call:signal' });
+		}
+
+		// Target must exist and be active. Tighten this to "shares a room" if desired.
+		const target = await Users.findOneById(envelope.to, { projection: { _id: 1, active: 1 } });
+		if (!target || target.active === false) {
+			throw new Meteor.Error('error-invalid-target', 'Target user not available', { method: 'voltec:call:signal' });
+		}
+
+		// Relay to the recipient with a server-stamped `from` (anti-spoof).
+		void api.broadcast('notify.voltecCall', envelope.to, { to: envelope.to, from: fromId, signal: envelope.signal });
+	},
+});
+
+// Signaling is chatty (ICE trickle): allow a generous burst per user.
+DDPRateLimiter.addRule(
+	{
+		type: 'method',
+		name: 'voltec:call:signal',
+		userId() {
+			return true;
+		},
+	},
+	120,
+	10000,
+);

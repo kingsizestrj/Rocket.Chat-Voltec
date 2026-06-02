@@ -62,13 +62,30 @@ Plano robusto:
 
 > Requer verificação de build (Meteor) em ambiente apropriado.
 
-### ⏳ Fase 3 — Chamadas WebRTC próprias (planejada)
+### 🚧 Fase 3 — Chamadas WebRTC próprias (núcleo entregue)
 
-Módulo novo e isolado (MIT), independente do `media-calls` Enterprise:
-- **Sinalização**: offer/answer/ICE via métodos/streams DDP do Rocket.Chat.
-- **Mídia**: `RTCPeerConnection` no client; 1:1 primeiro, depois grupo (mesh → SFU).
-- **STUN/TURN**: configurável (coturn autohospedado).
-- **UI**: tela de chamada no app (aceitar/recusar, mudo, vídeo on/off), histórico.
+Módulo novo e isolado (MIT), independente do `media-calls` Enterprise, em
+`apps/meteor/client/lib/voltecCalls/` (veja o `README.md` de lá).
+
+**Entregue (núcleo puro, `.ts` compilável, sem imports do RC):**
+- `WebRTCCallSession` — motor: `RTCPeerConnection`, mídia (getUserMedia),
+  ICE com buffering, mute/vídeo, lifecycle/estados.
+- `CallManager` — orquestrador: chamada de entrada/saída, sessão atual,
+  accept/reject/hangup, perfect-negotiation (polite/impolite).
+- `definitions.ts` (contrato `SignalingTransport`) + `Emitter` tipado.
+
+**Templates de integração (`.ts.example`, ativar quando puder buildar):**
+- `integration/ddpSignaling` — transporte via `sdk.stream` + método servidor.
+- `integration/bootstrap.client` — liga o manager no login (ICE das settings).
+- `server/lib/voltec/voltecCallSignaling.server` — método `voltec:call:signal`.
+- `server/lib/voltec/settings.server` — settings STUN/TURN.
+
+**Pendente (precisa de build):** plumbing de tipos nos pacotes compartilhados
+(core-typings, ddp-client/streams, core-services/Events) + listener + **UI**
+(modal de chamada recebida e barra em-chamada) + **coturn** (STUN/TURN).
+Checklist completo em `apps/meteor/client/lib/voltecCalls/README.md`.
+
+> 1:1 primeiro; grupo depois (mesh → SFU).
 
 ## Branding / Assets
 

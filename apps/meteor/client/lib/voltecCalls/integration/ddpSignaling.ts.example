@@ -1,0 +1,35 @@
+/* eslint-disable */
+/**
+ * Voltec calls — Rocket.Chat DDP signaling transport (REFERENCE TEMPLATE).
+ *
+ * This file is intentionally named `*.ts.example` so it is NOT compiled/typechecked
+ * until you activate it. To activate:
+ *   1) Rename to `ddpSignaling.ts`.
+ *   2) Fix the relative import path to `SDKClient` for its final location.
+ *   3) Apply the shared-package type additions documented in VOLTEC.md
+ *      (core-typings signal type + ddp-client `notify-user/voltec-call` entry).
+ *   4) Add the server method (see `voltecCallSignaling.server.ts.example`).
+ *   5) `yarn dev` / build to verify.
+ *
+ * It implements the RC-agnostic `SignalingTransport` seam using:
+ *   - outbound: the `voltec:call:signal` Meteor method (server validates + relays);
+ *   - inbound: the `stream-notify-user` DDP stream, event `${uid}/voltec-call`.
+ */
+import { sdk } from '../../../../app/utils/client/lib/SDKClient';
+import type { CallSignalEnvelope, SignalingTransport } from '../definitions';
+
+export function createDdpSignaling(localUserId: string): SignalingTransport {
+	return {
+		send(envelope: CallSignalEnvelope) {
+			// The server fills `from`; we only need `to` + `signal`.
+			return sdk.call('voltec:call:signal', envelope);
+		},
+
+		onSignal(handler: (envelope: CallSignalEnvelope) => void) {
+			const subscription = sdk.stream('notify-user', [`${localUserId}/voltec-call`], (envelope: CallSignalEnvelope) => {
+				handler(envelope);
+			});
+			return subscription.stop;
+		},
+	};
+}
