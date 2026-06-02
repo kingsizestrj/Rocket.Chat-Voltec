@@ -58,8 +58,9 @@ export function CallScreen(props: CallScreenProps): ReactElement {
 				/>
 			)}
 
-			{/* Audio is always rendered (works for audio-only calls too). */}
-			<audio ref={remoteRef} autoPlay />
+			{/* Audio-only calls play sound here; for video calls the <video> above
+			    already carries the audio, so avoid a second element (double audio). */}
+			{!isVideo && <audio ref={remoteRef} autoPlay />}
 
 			<Box position='absolute' style={{ top: 24 }} fontScale='h2' zIndex={1}>
 				{statusLabel}
