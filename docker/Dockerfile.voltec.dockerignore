@@ -1,5 +1,5 @@
-# Reduz o contexto do build (raiz do monorepo). NÃO exclua código-fonte nem
-# .yarn/releases (binário do Yarn) — só caches e artefatos.
+# Reduz o contexto do build (raiz do monorepo) e estabiliza o cache. NÃO exclua
+# código-fonte (apps/, packages/, ee/packages) nem .yarn/releases (binário do Yarn).
 **/node_modules
 .git
 **/.meteor/local
@@ -11,4 +11,15 @@
 **/*.log
 **/coverage
 **/.nyc_output
-docker/.env
+
+# Pastas/arquivos não usados pelo build do Meteor (mudá-los não invalida o cache):
+docker
+docs
+.github
+.changeset
+.devcontainer
+.gitpod
+.houston
+.cursor
+.vscode
+*.md
