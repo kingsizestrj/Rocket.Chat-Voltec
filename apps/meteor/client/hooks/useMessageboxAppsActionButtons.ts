@@ -6,7 +6,7 @@ import { useAppActionButtons, getIdForActionButton } from './useAppActionButtons
 import { useApplyButtonFilters } from './useApplyButtonFilters';
 import { UiKitTriggerTimeoutError } from '../../app/ui-message/client/UiKitTriggerTimeoutError';
 import type { MessageBoxAction } from '../../app/ui-utils/client/lib/messageBox';
-import { Utilities } from '../../ee/lib/misc/Utilities';
+import { Utilities } from '../../lib/misc/Utilities';
 import { useUiKitActionManager } from '../uikit/hooks/useUiKitActionManager';
 
 export const useMessageboxAppsActionButtons = () => {

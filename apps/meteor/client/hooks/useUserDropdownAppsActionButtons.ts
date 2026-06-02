@@ -7,7 +7,7 @@ import { useTranslation } from 'react-i18next';
 import { useAppActionButtons } from './useAppActionButtons';
 import { useApplyButtonAuthFilter } from './useApplyButtonFilters';
 import { UiKitTriggerTimeoutError } from '../../app/ui-message/client/UiKitTriggerTimeoutError';
-import { Utilities } from '../../ee/lib/misc/Utilities';
+import { Utilities } from '../../lib/misc/Utilities';
 import { useUiKitActionManager } from '../uikit/hooks/useUiKitActionManager';
 
 export const useUserDropdownAppsActionButtons = () => {

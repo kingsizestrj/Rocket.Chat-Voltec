@@ -1,5 +1,6 @@
 export * from './utils';
 
+export * from './voltec/IVoltecCall';
 export * from './Apps';
 export * from './IRoom';
 export * from './IMessage';

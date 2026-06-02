@@ -4,7 +4,7 @@ import type { ISlashCommand, ISlashCommandPreview, ISlashCommandPreviewItem } fr
 import { SlashCommandContext } from '@rocket.chat/apps-engine/definition/slashcommands';
 import type { IMessage, RequiredField, SlashCommand, SlashCommandCallbackParams } from '@rocket.chat/core-typings';
 
-import { Utilities } from '../../../../ee/lib/misc/Utilities';
+import { Utilities } from '../../../../lib/misc/Utilities';
 import { parseParameters } from '../../../../lib/utils/parseParameters';
 import { slashCommands } from '../../../utils/server/slashCommand';
 

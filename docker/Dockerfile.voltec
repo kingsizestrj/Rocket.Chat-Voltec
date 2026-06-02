@@ -22,7 +22,9 @@ ARG METEOR_VERSION
 ENV METEOR_ALLOW_SUPERUSER=true \
     NODE_OPTIONS=--max-old-space-size=8192 \
     CYPRESS_INSTALL_BINARY=0 \
-    PUPPETEER_SKIP_DOWNLOAD=1
+    PUPPETEER_SKIP_DOWNLOAD=1 \
+    # permite ao yarn regenerar o lockfile (deps EE removidas no fork Voltec)
+    YARN_ENABLE_IMMUTABLE_INSTALLS=false
 
 # Ferramentas de build nativas exigidas por algumas dependências.
 RUN apt-get update && apt-get install -y --no-install-recommends \

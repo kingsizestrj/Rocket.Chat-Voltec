@@ -6,7 +6,7 @@ import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { UiKitTriggerTimeoutError } from '../../../app/ui-message/client/UiKitTriggerTimeoutError';
-import { Utilities } from '../../../ee/lib/misc/Utilities';
+import { Utilities } from '../../../lib/misc/Utilities';
 import { useUiKitActionManager } from '../../uikit/hooks/useUiKitActionManager';
 import { useRoom } from '../../views/room/contexts/RoomContext';
 import { useAppActionButtons } from '../useAppActionButtons';

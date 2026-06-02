@@ -1,6 +1,5 @@
 import type { IMethodConnection, IUser } from '@rocket.chat/core-typings';
 import type { Route, Router } from '@rocket.chat/http-router';
-import { License } from '@rocket.chat/license';
 import { Logger } from '@rocket.chat/logger';
 import { Users } from '@rocket.chat/models';
 import { Random } from '@rocket.chat/random';
@@ -45,7 +44,6 @@ import { authenticationMiddlewareForHono } from './middlewares/authenticationHon
 import { permissionsMiddleware } from './middlewares/permissions';
 import type { APIActionContext } from './router';
 import { RocketChatAPIRouter } from './router';
-import { license } from '../../../ee/app/api-enterprise/server/middlewares/license';
 import { isObject } from '../../../lib/utils/isObject';
 import { getNestedProp } from '../../../server/lib/getNestedProp';
 import { shouldBreakInVersion } from '../../../server/lib/shouldBreakInVersion';
@@ -928,7 +926,6 @@ export class APIClass<TBasePath extends string = '', TOperations extends Record<
 						logger,
 					}),
 					permissionsMiddleware(_options as TypedOptions),
-					license(_options as TypedOptions, License),
 					(operations[method as keyof Operations<TPathPattern, TOptions>] as Record<string, any>).action,
 				);
 				this._routes.push({

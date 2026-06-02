@@ -1,7 +1,7 @@
 import { useTranslation } from '@rocket.chat/ui-contexts';
 import { useCallback } from 'react';
 
-import { Utilities } from '../../../../ee/lib/misc/Utilities';
+import { Utilities } from '../../../../lib/misc/Utilities';
 
 type AppTranslationFunction = {
 	(key: string, ...replaces: unknown[]): string;

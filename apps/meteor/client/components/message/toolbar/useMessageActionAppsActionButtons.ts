@@ -6,7 +6,7 @@ import { useTranslation } from 'react-i18next';
 
 import { UiKitTriggerTimeoutError } from '../../../../app/ui-message/client/UiKitTriggerTimeoutError';
 import type { MessageActionContext, MessageActionConfig } from '../../../../app/ui-utils/client/lib/MessageAction';
-import { Utilities } from '../../../../ee/lib/misc/Utilities';
+import { Utilities } from '../../../../lib/misc/Utilities';
 import { useAppActionButtons, getIdForActionButton } from '../../../hooks/useAppActionButtons';
 import { useApplyButtonFilters } from '../../../hooks/useApplyButtonFilters';
 import { useUiKitActionManager } from '../../../uikit/hooks/useUiKitActionManager';

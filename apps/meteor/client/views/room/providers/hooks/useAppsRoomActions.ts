@@ -4,7 +4,7 @@ import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { UiKitTriggerTimeoutError } from '../../../../../app/ui-message/client/UiKitTriggerTimeoutError';
-import { Utilities } from '../../../../../ee/lib/misc/Utilities';
+import { Utilities } from '../../../../../lib/misc/Utilities';
 import { useAppActionButtons } from '../../../../hooks/useAppActionButtons';
 import { useApplyButtonFilters } from '../../../../hooks/useApplyButtonFilters';
 import { useUiKitActionManager } from '../../../../uikit/hooks/useUiKitActionManager';

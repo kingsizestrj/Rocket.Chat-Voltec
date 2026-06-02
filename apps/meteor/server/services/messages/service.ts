@@ -16,7 +16,6 @@ import { executeSendMessage } from '../../../app/lib/server/methods/sendMessage'
 import { executeSetReaction } from '../../../app/reactions/server/setReaction';
 import { settings } from '../../../app/settings/server';
 import { getUserAvatarURL } from '../../../app/utils/server/getUserAvatarURL';
-import { BeforeSaveCannedResponse } from '../../../ee/server/hooks/messages/BeforeSaveCannedResponse';
 import { FederationMatrixInvalidConfigurationError } from '../federation/utils';
 import { FederationActions } from './hooks/BeforeFederationActions';
 import { BeforeSaveBadWords } from './hooks/BeforeSaveBadWords';
@@ -42,8 +41,6 @@ export class MessageService extends ServiceClassInternal implements IMessageServ
 
 	private jumpToMessage: BeforeSaveJumpToMessage;
 
-	private cannedResponse: BeforeSaveCannedResponse;
-
 	private markdownParser: BeforeSaveMarkdownParser;
 
 	private checkMAC: BeforeSaveCheckMAC;
@@ -66,7 +63,6 @@ export class MessageService extends ServiceClassInternal implements IMessageServ
 				return (user && getUserAvatarURL(user)) || '';
 			},
 		});
-		this.cannedResponse = new BeforeSaveCannedResponse();
 		this.markdownParser = new BeforeSaveMarkdownParser(!disableMarkdownParser);
 		this.checkMAC = new BeforeSaveCheckMAC();
 
@@ -236,7 +232,6 @@ export class MessageService extends ServiceClassInternal implements IMessageServ
 			throw new FederationMatrixInvalidConfigurationError('Unable to send message');
 		}
 
-		message = await this.cannedResponse.replacePlaceholders({ message, room, user });
 		message = await this.badWords.filterBadWords({ message });
 		// TODO: Auto-close unclosed markdown code blocks for server versions below 9.0.0
 		// In 9.0.0, this behavior is handled on the client side, so this block should be removed.

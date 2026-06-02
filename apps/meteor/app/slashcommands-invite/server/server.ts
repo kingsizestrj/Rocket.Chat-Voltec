@@ -1,7 +1,6 @@
 import { api, FederationMatrix, isMeteorError } from '@rocket.chat/core-services';
 import type { IUser, SlashCommandCallbackParams } from '@rocket.chat/core-typings';
 import { isBannedSubscription } from '@rocket.chat/core-typings';
-import { validateFederatedUsername } from '@rocket.chat/federation-matrix';
 import { Subscriptions, Users, Rooms } from '@rocket.chat/models';
 import { Meteor } from 'meteor/meteor';
 
@@ -40,8 +39,8 @@ slashCommands.add({
 			return;
 		}
 
-		// Ensure federated users exist locally before looking them up
-		const federatedUsernames = usernames.filter((u) => validateFederatedUsername(u)) as string[];
+		// Federation removed in Voltec (FOSS): no federated usernames.
+		const federatedUsernames: string[] = [];
 		if (federatedUsernames.length > 0) {
 			if (FederationActions.shouldPerformFederationAction(room)) {
 				await FederationMatrix.ensureFederatedUsersExistLocally(federatedUsernames);
