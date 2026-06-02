@@ -59,7 +59,13 @@ RUN cd apps/meteor \
     && mv package.json.bak package.json
 
 # 5) Build de produção do Meteor (server-only) -> /tmp/dist/bundle
-RUN yarn workspace @rocket.chat/meteor run build:ci
+#    O pacote rocketchat:version roda `git log`/`git rev-parse` e, em produção,
+#    re-lança o erro se não houver repositório git. Como o .git é excluído do
+#    contexto (cache/tamanho), criamos um repo mínimo com um commit vazio só
+#    para o build conseguir gravar os metadados de versão.
+RUN git init -q \
+    && git -c user.email=build@voltec.local -c user.name='Voltec Build' commit -q --allow-empty -m 'voltec production build' \
+    && yarn workspace @rocket.chat/meteor run build:ci
 
 # ============================================================
 # Stage 2 — runtime: empacota o bundle (espelha Dockerfile.debian)
