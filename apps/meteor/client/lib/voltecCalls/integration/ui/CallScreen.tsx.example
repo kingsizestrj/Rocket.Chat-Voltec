@@ -1,0 +1,83 @@
+/* eslint-disable */
+/**
+ * Voltec calls — in-call screen (REFERENCE TEMPLATE, rename to `.tsx`).
+ *
+ * Presentational full-screen overlay: remote video fills the screen, local video
+ * is a small picture-in-picture, and a control bar exposes mute, camera toggle
+ * and hang up. Audio-only calls hide the video surfaces. Uses Fuselage + the pure
+ * `useMediaStreamRef` helper.
+ */
+import { Box, IconButton } from '@rocket.chat/fuselage';
+import type { ReactElement } from 'react';
+import { useTranslation } from 'react-i18next';
+
+import type { CallState } from '../../definitions';
+import { useMediaStreamRef } from '../../react';
+
+type CallScreenProps = {
+	remoteUserId: string | undefined;
+	state: CallState | undefined;
+	isVideo: boolean;
+	localStream: MediaStream | undefined;
+	remoteStream: MediaStream | undefined;
+	isMuted: boolean;
+	videoEnabled: boolean;
+	onToggleMute: () => void;
+	onToggleVideo: () => void;
+	onHangup: () => void;
+};
+
+export function CallScreen(props: CallScreenProps): ReactElement {
+	const { remoteUserId, state, isVideo, localStream, remoteStream, isMuted, videoEnabled, onToggleMute, onToggleVideo, onHangup } = props;
+	const { t } = useTranslation();
+
+	const remoteRef = useMediaStreamRef(remoteStream);
+	const localRef = useMediaStreamRef(localStream);
+
+	const statusLabel = state === 'connected' ? remoteUserId : state === 'calling' ? t('Voltec_Calling') : t('Voltec_Connecting');
+
+	return (
+		<Box
+			position='fixed'
+			width='100%'
+			height='100%'
+			display='flex'
+			flexDirection='column'
+			alignItems='center'
+			justifyContent='center'
+			bg='surface-dark'
+			color='white'
+			style={{ inset: 0, zIndex: 1000 }}
+		>
+			{isVideo && (
+				<video
+					ref={remoteRef}
+					autoPlay
+					playsInline
+					style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }}
+				/>
+			)}
+
+			{/* Audio is always rendered (works for audio-only calls too). */}
+			<audio ref={remoteRef} autoPlay />
+
+			<Box position='absolute' style={{ top: 24 }} fontScale='h2' zIndex={1}>
+				{statusLabel}
+			</Box>
+
+			{isVideo && videoEnabled && (
+				<Box position='absolute' style={{ bottom: 110, right: 24, width: 140, height: 200, borderRadius: 8, overflow: 'hidden' }} zIndex={1}>
+					<video ref={localRef} autoPlay playsInline muted style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+				</Box>
+			)}
+
+			<Box position='absolute' style={{ bottom: 32 }} display='flex' zIndex={1}>
+				<IconButton mi={8} secondary icon={isMuted ? 'mic-off' : 'mic'} title={t('Voltec_Toggle_mute')} onClick={onToggleMute} />
+				{isVideo && (
+					<IconButton mi={8} secondary icon={videoEnabled ? 'video' : 'video-off'} title={t('Voltec_Toggle_camera')} onClick={onToggleVideo} />
+				)}
+				<IconButton mi={8} danger icon='phone-off' title={t('Voltec_Hang_up')} onClick={onHangup} />
+			</Box>
+		</Box>
+	);
+}

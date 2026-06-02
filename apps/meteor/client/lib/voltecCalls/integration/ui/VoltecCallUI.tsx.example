@@ -1,0 +1,58 @@
+/* eslint-disable */
+/**
+ * Voltec calls — top-level UI container (REFERENCE TEMPLATE, rename to `.tsx`).
+ *
+ * Mount this ONCE near the app root (e.g. inside AppLayout) so it can render the
+ * incoming-call modal and the in-call screen on top of everything. It owns the
+ * `useCallManager` hook and passes presentational props down.
+ *
+ * Activation:
+ *   1) Activate the core integration first (see ../../README.md).
+ *   2) Rename this file + the two siblings to `.tsx`.
+ *   3) `import { VoltecCallUI } from '.../voltecCalls/integration/ui/VoltecCallUI'`
+ *      and render <VoltecCallUI /> once inside the authenticated app shell.
+ */
+import type { ReactElement } from 'react';
+
+import { useCallManager } from '../../react';
+import { callManager } from '../bootstrap.client';
+import { CallScreen } from './CallScreen';
+import { IncomingCallModal } from './IncomingCallModal';
+
+export function VoltecCallUI(): ReactElement | null {
+	const ctrl = useCallManager(callManager);
+
+	const hasActiveCall = ctrl.state === 'calling' || ctrl.state === 'connecting' || ctrl.state === 'connected';
+
+	// Ringing (incoming, not yet accepted): show the modal.
+	if (ctrl.incoming && !hasActiveCall) {
+		return (
+			<IncomingCallModal
+				from={ctrl.incoming.from}
+				video={ctrl.incoming.video}
+				onAccept={() => ctrl.accept({ video: ctrl.incoming?.video })}
+				onReject={ctrl.reject}
+			/>
+		);
+	}
+
+	// Active call: show the in-call screen.
+	if (hasActiveCall) {
+		return (
+			<CallScreen
+				remoteUserId={ctrl.remoteUserId}
+				state={ctrl.state}
+				isVideo={ctrl.isVideo}
+				localStream={ctrl.localStream}
+				remoteStream={ctrl.remoteStream}
+				isMuted={ctrl.isMuted}
+				videoEnabled={ctrl.videoEnabled}
+				onToggleMute={ctrl.toggleMute}
+				onToggleVideo={ctrl.toggleVideo}
+				onHangup={ctrl.hangup}
+			/>
+		);
+	}
+
+	return null;
+}

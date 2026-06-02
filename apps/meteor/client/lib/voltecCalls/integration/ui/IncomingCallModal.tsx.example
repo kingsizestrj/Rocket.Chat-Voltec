@@ -1,0 +1,53 @@
+/* eslint-disable */
+/**
+ * Voltec calls — incoming-call modal (REFERENCE TEMPLATE, rename to `.tsx`).
+ *
+ * Presentational: it receives the caller and accept/reject handlers as props.
+ * Uses the Fuselage UI kit + react-i18next, matching the rest of the client.
+ * Swap `UserAvatar`/username lookup for your preferred RC helpers if the import
+ * paths differ in your tree.
+ */
+import { Avatar, Box, Button, ButtonGroup, Modal } from '@rocket.chat/fuselage';
+import type { ReactElement } from 'react';
+import { useTranslation } from 'react-i18next';
+
+type IncomingCallModalProps = {
+	from: string;
+	video: boolean;
+	onAccept: () => void;
+	onReject: () => void;
+};
+
+export function IncomingCallModal({ from, video, onAccept, onReject }: IncomingCallModalProps): ReactElement {
+	const { t } = useTranslation();
+
+	return (
+		<Modal>
+			<Modal.Header>
+				<Modal.Title>{video ? t('Voltec_Incoming_video_call') : t('Voltec_Incoming_call')}</Modal.Title>
+			</Modal.Header>
+			<Modal.Content>
+				<Box display='flex' flexDirection='column' alignItems='center' pb={24}>
+					{/* Replace with RC's <UserAvatar username={...} size='x124' /> once wired. */}
+					<Avatar size='x124' url={`/avatar/${from}`} />
+					<Box fontScale='h3' mbs={16}>
+						{from}
+					</Box>
+					<Box fontScale='p2' color='hint'>
+						{t('Voltec_is_calling')}
+					</Box>
+				</Box>
+			</Modal.Content>
+			<Modal.Footer>
+				<ButtonGroup align='center'>
+					<Button danger icon='phone-off' onClick={onReject}>
+						{t('Decline')}
+					</Button>
+					<Button success icon='phone' onClick={onAccept}>
+						{t('Accept')}
+					</Button>
+				</ButtonGroup>
+			</Modal.Footer>
+		</Modal>
+	);
+}

@@ -72,22 +72,25 @@ Commitar a árvore quebrada seria pior que inútil.
 Módulo novo e isolado (MIT), independente do `media-calls` Enterprise, em
 `apps/meteor/client/lib/voltecCalls/` (veja o `README.md` de lá).
 
-**Entregue (núcleo puro, `.ts` compilável, sem imports do RC):**
+**Entregue (puro, `.ts` compilável, sem imports do RC — só DOM/`react`):**
 - `WebRTCCallSession` — motor: `RTCPeerConnection`, mídia (getUserMedia),
   ICE com buffering, mute/vídeo, lifecycle/estados.
 - `CallManager` — orquestrador: chamada de entrada/saída, sessão atual,
   accept/reject/hangup, perfect-negotiation (polite/impolite).
 - `definitions.ts` (contrato `SignalingTransport`) + `Emitter` tipado.
+- `react/useCallManager` — eventos → estado React + ações; `useMediaStreamRef`.
 
-**Templates de integração (`.ts.example`, ativar quando puder buildar):**
+**Templates de integração (`.ts(x).example`, ativar quando puder buildar):**
 - `integration/ddpSignaling` — transporte via `sdk.stream` + método servidor.
 - `integration/bootstrap.client` — liga o manager no login (ICE das settings).
+- `integration/ui/` — `VoltecCallUI` (container), `IncomingCallModal`,
+  `CallScreen`, `StartCallButton` (Fuselage/i18n).
 - `server/lib/voltec/voltecCallSignaling.server` — método `voltec:call:signal`.
 - `server/lib/voltec/settings.server` — settings STUN/TURN.
 
 **Pendente (precisa de build):** plumbing de tipos nos pacotes compartilhados
-(core-typings, ddp-client/streams, core-services/Events) + listener + **UI**
-(modal de chamada recebida e barra em-chamada) + **coturn** (STUN/TURN).
+(core-typings, ddp-client/streams, core-services/Events) + listener + montar a UI
+no shell + chaves i18n + **coturn** (STUN/TURN).
 Checklist completo em `apps/meteor/client/lib/voltecCalls/README.md`.
 
 > 1:1 primeiro; grupo depois (mesh → SFU).

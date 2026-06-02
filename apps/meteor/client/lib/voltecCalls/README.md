@@ -13,17 +13,40 @@ client/lib/voltecCalls/
   WebRTCCallSession.ts  # motor: RTCPeerConnection, mídia, ICE, mute/vídeo (puro)
   CallManager.ts        # orquestrador: entrada/saída, sessão atual (puro)
   index.ts              # barrel do núcleo
-  integration/          # TEMPLATES .ts.example (não compilados até ativar)
+  react/                # binding React (PURO: só react + núcleo local) — .ts real
+    useCallManager.ts   # CallManager -> estado reativo + ações
+    useMediaStreamRef.ts# liga MediaStream a <video>/<audio>
+    index.ts
+  integration/          # TEMPLATES .ts(x).example (não compilados até ativar)
     ddpSignaling.ts.example      # SignalingTransport via sdk.stream + método
     bootstrap.client.ts.example  # liga o CallManager no login
+    ui/                          # UI visual (Fuselage/i18n) — templates
+      VoltecCallUI.tsx.example     # container (usa useCallManager)
+      IncomingCallModal.tsx.example
+      CallScreen.tsx.example
+      StartCallButton.tsx.example
 server/lib/voltec/
   voltecCallSignaling.server.ts.example  # método voltec:call:signal (relay)
   settings.server.ts.example             # settings STUN/TURN
 ```
 
-O **núcleo** (`definitions`, `Emitter`, `WebRTCCallSession`, `CallManager`, `index`)
-é `.ts` real, compilado e testável — **zero imports do RC**. A **integração** vem como
-`.ts.example` para não entrar no typecheck/CI antes de você buildar e validar.
+O **núcleo** + o **binding React** (`react/`) são `.ts` reais, compilados e testáveis —
+**zero imports do RC** (só `react` + o núcleo local). A **integração** RC (transporte
+DDP, método servidor, UI visual com Fuselage/i18n) vem como `.ts(x).example` para não
+entrar no typecheck/CI antes de você buildar e validar.
+
+### Camada de UI
+
+- `react/useCallManager(manager)` — transforma os eventos do `CallManager` em estado
+  React (`incoming`, `state`, `localStream`, `remoteStream`, `isMuted`, …) + ações
+  (`call`, `accept`, `reject`, `hangup`, `toggleMute`, `toggleVideo`). Puro e seguro.
+- `integration/ui/VoltecCallUI` — monte **uma vez** no shell autenticado (ex.: dentro
+  do `AppLayout`); decide entre modal de chamada recebida e tela em-chamada.
+- `IncomingCallModal` / `CallScreen` / `StartCallButton` — apresentacionais (Fuselage).
+- **Chaves i18n** a adicionar (senão renderiza a própria chave): `Voltec_Incoming_call`,
+  `Voltec_Incoming_video_call`, `Voltec_is_calling`, `Voltec_Calling`,
+  `Voltec_Connecting`, `Voltec_Toggle_mute`, `Voltec_Toggle_camera`, `Voltec_Hang_up`,
+  `Voltec_Start_call`, `Voltec_Start_video_call` (`Accept`/`Decline` já existem).
 
 ## Fluxo de sinalização
 
@@ -88,8 +111,11 @@ Candidatos ICE que chegam antes da `accept()` são bufferizados e reaplicados.
    para `.ts`, ajuste os caminhos relativos, e adicione
    `import './startup/voltecCalls'` em `client/main.ts`.
 
-7. **UI** — modal de chamada recebida + barra em-chamada (aceitar/recusar, mudo,
-   vídeo on/off), consumindo `callManager` (eventos `incoming`/`statechange`/`ended`).
+7. **UI** — renomeie `integration/ui/*.tsx.example` → `.tsx`, monte
+   `<VoltecCallUI />` uma vez no shell autenticado (ex.: dentro do `AppLayout`), e
+   coloque `<StartCallButton userId={...} />` no header da DM / card de usuário.
+   Adicione as chaves i18n listadas acima. A lógica reativa (`react/useCallManager`)
+   já está pronta e compilável.
 
 8. **STUN/TURN** — suba um **coturn** e configure em
    Admin → `Voltec_Calls` → `Voltec_Call_ICE_Servers`.

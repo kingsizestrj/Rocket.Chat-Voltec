@@ -1,0 +1,43 @@
+/* eslint-disable */
+/**
+ * Voltec calls — start-call button (REFERENCE TEMPLATE, rename to `.tsx`).
+ *
+ * Drop this into a direct-message room header or a user card to place an outgoing
+ * audio/video call. Wire it where RC already shows per-user actions (e.g.
+ * `client/views/room/Header` or the UserCard actions).
+ */
+import { IconButton } from '@rocket.chat/fuselage';
+import type { ReactElement } from 'react';
+import { useTranslation } from 'react-i18next';
+
+import { callManager } from '../bootstrap.client';
+
+type StartCallButtonProps = {
+	/** The user id to call. */
+	userId: string;
+	withVideo?: boolean;
+};
+
+export function StartCallButton({ userId, withVideo = false }: StartCallButtonProps): ReactElement | null {
+	const { t } = useTranslation();
+
+	if (!callManager) {
+		return null;
+	}
+
+	const handleClick = (): void => {
+		callManager?.startCall(userId, { video: withVideo }).catch((err) => {
+			// e.g. already in a call / permissions denied
+			console.error('[voltec-calls] could not start call', err);
+		});
+	};
+
+	return (
+		<IconButton
+			icon={withVideo ? 'video' : 'phone'}
+			title={withVideo ? t('Voltec_Start_video_call') : t('Voltec_Start_call')}
+			disabled={callManager.isBusy()}
+			onClick={handleClick}
+		/>
+	);
+}
