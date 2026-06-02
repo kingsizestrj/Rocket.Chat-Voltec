@@ -1,0 +1,32 @@
+# Override para usar um PROXY EXTERNO containerizado (ex.: Nginx Proxy Manager)
+# via REDE COMPARTILHADA — o jeito recomendado quando o NPM roda em Docker.
+# Conecta o rocketchat à rede do seu proxy para que ele alcance o app pelo nome
+# do serviço (rocketchat:3000), sem publicar porta no host.
+#
+# Passos:
+#   1) Veja a rede do seu NPM:   docker network ls
+#   2) No .env, defina PROXY_NETWORK com o nome dela (ex.: PROXY_NETWORK=npm_default)
+#      OU crie uma rede dedicada e conecte o container do NPM a ela:
+#         docker network create voltec-proxy
+#         docker network connect voltec-proxy <container-do-npm>
+#         (e PROXY_NETWORK=voltec-proxy)
+#   3) Suba:
+#        docker compose -f docker/docker-compose.yml \
+#          -f docker/docker-compose.external-proxy.yml --env-file docker/.env up -d
+#   4) No NPM crie um Proxy Host:
+#        - Forward Hostname/IP: rocketchat
+#        - Forward Port: 3000
+#        - Scheme: http
+#        - ✅ Websockets Support  (OBRIGATÓRIO — o Rocket.Chat usa WebSocket/DDP)
+#        - SSL: emita o certificado pelo próprio NPM (Force SSL + HTTP/2)
+
+services:
+  rocketchat:
+    networks:
+      - default
+      - proxy
+
+networks:
+  proxy:
+    external: true
+    name: ${PROXY_NETWORK:-proxy}

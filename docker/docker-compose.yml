@@ -22,6 +22,9 @@ services:
       ROOT_URL: 'https://${DOMAIN:?defina DOMAIN no .env}'
       PORT: '3000'
       DEPLOY_METHOD: docker
+      # Nº de proxies reversos na frente (Traefik OU NPM = 1). Faz o RC confiar
+      # nos cabeçalhos X-Forwarded-* (IP real do cliente, rate limit).
+      HTTP_FORWARDED_COUNT: '${HTTP_FORWARDED_COUNT:-1}'
       # Admin inicial (opcional — preenche o setup wizard):
       ADMIN_USERNAME: ${ADMIN_USERNAME:-}
       ADMIN_PASS: ${ADMIN_PASS:-}
@@ -33,13 +36,17 @@ services:
       mongo:
         condition: service_healthy
     labels:
+      # Usados apenas quando o Traefik embutido roda (--profile builtin-tls).
       traefik.enable: 'true'
       traefik.http.routers.rocketchat.rule: 'Host(`${DOMAIN}`)'
       traefik.http.routers.rocketchat.entrypoints: websecure
       traefik.http.routers.rocketchat.tls.certresolver: le
       traefik.http.services.rocketchat.loadbalancer.server.port: '3000'
-    expose:
-      - '3000'
+    # Publica a porta para um proxy externo (ex.: Nginx Proxy Manager no mesmo host).
+    # Padrão 127.0.0.1 = só acessível localmente. Para NPM em container, prefira a
+    # rede compartilhada (docker-compose.external-proxy.yml).
+    ports:
+      - '${ROCKETCHAT_BIND:-127.0.0.1:3000}:3000'
 
   mongo:
     image: mongodb/mongodb-community-server:${MONGODB_VERSION:-7.0}-ubi8
@@ -69,8 +76,11 @@ services:
         echo '=====> replica set rs0 pronto'
         wait
 
+  # Proxy reverso + TLS EMBUTIDO. Opcional: só sobe com `--profile builtin-tls`.
+  # Se você já usa um proxy externo (Nginx Proxy Manager etc.), NÃO use este profile.
   traefik:
     image: traefik:v3.6.6
+    profiles: ['builtin-tls']
     restart: unless-stopped
     command:
       - --providers.docker=true
@@ -80,7 +90,7 @@ services:
       # redireciona HTTP -> HTTPS
       - --entrypoints.web.http.redirections.entrypoint.to=websecure
       - --entrypoints.web.http.redirections.entrypoint.scheme=https
-      - --certificatesresolvers.le.acme.email=${TLS_EMAIL:?defina TLS_EMAIL no .env}
+      - --certificatesresolvers.le.acme.email=${TLS_EMAIL:-admin@${DOMAIN}}
       - --certificatesresolvers.le.acme.storage=/letsencrypt/acme.json
       - --certificatesresolvers.le.acme.tlschallenge=true
     ports:
@@ -90,9 +100,11 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - traefik_letsencrypt:/letsencrypt
 
-  # TURN/STUN para as chamadas WebRTC atravessarem NAT/firewall corporativo.
+  # TURN/STUN para as chamadas WebRTC. Opcional: só sobe com `--profile calls`
+  # (ative quando o módulo WebRTC estiver habilitado).
   coturn:
     image: coturn/coturn:4.6
+    profiles: ['calls']
     restart: unless-stopped
     network_mode: host # coturn precisa de muitas portas de relay; host é o mais simples
     volumes:
@@ -100,9 +112,9 @@ services:
     command:
       - -c
       - /etc/coturn/turnserver.conf
-      - --external-ip=${TURN_PUBLIC_IP:?defina TURN_PUBLIC_IP no .env}
+      - --external-ip=${TURN_PUBLIC_IP:-}
       - --realm=${TURN_REALM:-${DOMAIN}}
-      - --user=${TURN_USER:-voltec}:${TURN_SECRET:?defina TURN_SECRET no .env}
+      - --user=${TURN_USER:-voltec}:${TURN_SECRET:-change-me}
 
 volumes:
   rocketchat_uploads:

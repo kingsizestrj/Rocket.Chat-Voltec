@@ -51,10 +51,10 @@ ENV PATH="/root/.meteor:${PATH}"
 
 # 4) Truque de merge (igual ao CI): devDependencies viram dependencies para o
 #    bundle, e restaura o package.json original antes do meteor build.
+#    Usa `node` (sempre presente) em vez de `jq` para não exigir pacote extra.
 RUN cd apps/meteor \
     && cp package.json package.json.bak \
-    && jq '.dependencies = (.dependencies + .devDependencies) | del(.devDependencies)' package.json > package.json.tmp \
-    && mv package.json.tmp package.json \
+    && node -e "const fs=require('fs'),p=JSON.parse(fs.readFileSync('package.json','utf8'));p.dependencies={...(p.dependencies||{}),...(p.devDependencies||{})};delete p.devDependencies;fs.writeFileSync('package.json',JSON.stringify(p,null,2)+'\n')" \
     && yarn install --inline-builds \
     && mv package.json.bak package.json
 
@@ -88,19 +88,34 @@ ENV DEPLOY_METHOD=docker \
     ROOT_URL=http://localhost:3000 \
     Accounts_AvatarStorePath=/app/uploads
 
-# Build das deps nativas do bundle (g++/make/python só durante o npm install).
+# Ferramentas de build nativas (só durante o npm install). O truque apt-mark
+# guarda o conjunto "manual" atual para purgar só o que foi adicionado depois.
 RUN aptMark="$(apt-mark showmanual)" \
     && apt-get update \
     && apt-get install -y --no-install-recommends g++ make python3 ca-certificates \
-    && su rocketchat -s /bin/bash -c '\
-        cd /app/bundle/programs/server \
-        && npm install --omit=dev \
-        && cd npm/node_modules/isolated-vm \
-        && npm install --omit=dev \
-        && npm cache clear --force' \
+    && apt-mark auto '.*' > /dev/null \
+    && apt-mark manual $aptMark > /dev/null
+
+# npm install do bundle como rocketchat (HOME=/tmp do ENV acima é respeitado).
+USER rocketchat
+RUN cd /app/bundle/programs/server \
+    && npm install --omit=dev \
+    && cd npm/node_modules/isolated-vm \
+    && npm install --omit=dev \
+    && npm cache clear --force \
     && find /app/bundle/programs/server/npm/node_modules -type f -name '*.map' -delete \
-    && find /app/bundle/programs/web.browser -type f -name '*.map' -delete \
-    && apt-get purge -y --auto-remove g++ make python3 \
+    && find /app/bundle/programs/web.browser -type f -name '*.map' -delete
+
+# Re-marca como "manual" as libs de runtime ainda usadas e purga o resto (build deps).
+USER root
+RUN find /usr/local -type f -executable -exec ldd '{}' ';' \
+    | awk '/=>/ { print $(NF-1) }' \
+    | sort -u \
+    | xargs -r dpkg-query --search \
+    | cut -d: -f1 \
+    | sort -u \
+    | xargs -r apt-mark manual \
+    && apt-get purge -y --auto-remove -o APT::AutoRemove::RecommendsImportant=false \
     && rm -rf /var/lib/apt/lists/*
 
 USER rocketchat

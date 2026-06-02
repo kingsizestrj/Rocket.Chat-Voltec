@@ -55,16 +55,46 @@ cd /tmp/dist && docker build -t voltec/rocketchat:local \
 > Quer a versão **sem o código enterprise**? Rode antes `yarn voltec-fossify` e siga
 > `docs/voltec-foss.md` (ou rode em modo Community dormante, sem remover nada).
 
-## 3) Subir tudo
+## 3) Subir
+
+O compose usa **profiles** para você escolher o que sobe:
+
+| O que sobe | Comando |
+|---|---|
+| **Só app + Mongo** (use seu proxy externo) | `docker compose -f docker/docker-compose.yml --env-file docker/.env up -d` |
+| **+ TLS embutido (Traefik)** | adicione `--profile builtin-tls` |
+| **+ Chamadas (coturn)** | adicione `--profile calls` |
+
+O Mongo sobe como **replica set `rs0`** (exigência do RC) e o app só inicia quando
+o Mongo fica `healthy`. Logs: `docker compose -f docker/docker-compose.yml logs -f rocketchat`.
+
+## 3.1) Atrás de um proxy externo (Nginx Proxy Manager) ⭐
+
+Se você **já tem um proxy** (NPM, nginx, Caddy…), **não** use o Traefik embutido
+(não passe `--profile builtin-tls`). O TLS fica no seu proxy.
+
+> ⚠️ **Habilite "Websockets Support" no proxy.** O Rocket.Chat usa WebSocket/DDP —
+> sem isso o app carrega mas fica reconectando e não funciona.
+
+**Opção 1 — NPM em Docker (recomendado): rede compartilhada.** O NPM alcança o app
+pelo nome do serviço, sem expor porta no host. Veja o cabeçalho de
+`docker/docker-compose.external-proxy.yml`:
 
 ```bash
-docker compose -f docker/docker-compose.yml --env-file docker/.env up -d
-docker compose -f docker/docker-compose.yml logs -f rocketchat
+# defina PROXY_NETWORK no .env com a rede do seu NPM (docker network ls)
+docker compose -f docker/docker-compose.yml \
+  -f docker/docker-compose.external-proxy.yml --env-file docker/.env up -d
 ```
+No NPM → Proxy Host: **Forward** `rocketchat` : `3000`, **Scheme** `http`,
+**✅ Websockets Support**, e emita o SSL no NPM (Force SSL).
 
-O Traefik emite o certificado TLS automaticamente (Let's Encrypt) no primeiro
-acesso a `https://SEU_DOMINIO`. O Mongo sobe como **replica set `rs0`** (exigência
-do Rocket.Chat) e o app só inicia quando o Mongo fica saudável.
+**Opção 2 — proxy no mesmo host (ou fora do Docker): porta publicada.**
+O app é publicado em `ROCKETCHAT_BIND` (padrão `127.0.0.1:3000`). Aponte o proxy
+para `http://127.0.0.1:3000` (mesmo host). Se o proxy estiver em outra máquina,
+use `ROCKETCHAT_BIND=0.0.0.0:3000` e **proteja com firewall**.
+
+Em ambos os casos, `ROOT_URL=https://SEU_DOMINIO` (já vem do `.env`) e
+`HTTP_FORWARDED_COUNT=1` (o RC confia no IP repassado pelo proxy).
 
 ## 4) Primeiro acesso
 
@@ -75,7 +105,9 @@ do Rocket.Chat) e o app só inicia quando o Mongo fica saudável.
 ## 5) Ativar as chamadas WebRTC (coturn)
 
 1. Ative o módulo de chamadas (veja `apps/meteor/client/lib/voltecCalls/README.md`).
-2. Em **Admin → `Voltec_Calls` → `Voltec_Call_ICE_Servers`**, configure:
+2. Suba o coturn com o profile `calls` (preencha `TURN_*` no `.env`):
+   `docker compose -f docker/docker-compose.yml --env-file docker/.env --profile calls up -d`
+3. Em **Admin → `Voltec_Calls` → `Voltec_Call_ICE_Servers`**, configure:
 
    ```json
    [
